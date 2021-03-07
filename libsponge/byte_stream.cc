@@ -29,7 +29,8 @@ size_t ByteStream::write(const string &data) {
 string ByteStream::peek_output(const size_t len) const {
     std::string res;
     if ( buffer_empty() ) return res;
-    for ( size_t i = 0; i < min(len,buffer_size()); ++i)
+    size_t bufsize = buffer_size();
+    for ( size_t i = 0; i < min(len,bufsize); ++i)
     {
         res += buffer[(next_read+i)%buffer.capacity()];
     }
@@ -53,7 +54,8 @@ void ByteStream::pop_output(const size_t len) {
 std::string ByteStream::read(const size_t len) {
     std::string res;
     if ( buffer_empty() ) set_error();
-    for ( size_t i = 0; i < min(len,buffer_size()); ++i )
+    size_t bufsize = buffer_size();
+    for ( size_t i = 0; i < min(len,bufsize); ++i )
     {
         res += buffer[next_read++];
         next_read %= buffer.capacity();
