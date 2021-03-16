@@ -12,70 +12,57 @@ void DUMMY_CODE(Targs &&... /* unused */) {}
 
 using namespace std;
 
-ByteStream::ByteStream(const size_t capacity) { buffer.resize(capacity); }
+ByteStream::ByteStream(const size_t capacity): _capacity(capacity) { }
 
 size_t ByteStream::write(const string &data) {
-    size_t count = 0;
-    while ( remaining_capacity() > 0 && count < data.size() )
-    {
-        buffer[next_write++] = data[count++];
-        next_write %= buffer.capacity();
-        total_write++;
-    }
-    return count;
+    size_t cnt = 0;
+    while ( _buffer.size() < _capacity && cnt < data.size() )
+        _buffer.push_back(data[cnt++]);
+    _total_write += cnt;
+    return cnt;
 }
 
 //! \param[in] len bytes will be copied from the output side of the buffer
 string ByteStream::peek_output(const size_t len) const {
-    std::string res;
-    if ( buffer_empty() ) return res;
-    size_t bufsize = buffer_size();
-    for ( size_t i = 0; i < min(len,bufsize); ++i)
-    {
-        res += buffer[(next_read+i)%buffer.capacity()];
-    }
+    size_t cnt = 0;
+    string res;
+    while ( cnt < len && cnt < _buffer.size() )
+        res += _buffer[cnt++];
     return res;
 }
 
 //! \param[in] len bytes will be removed from the output side of the buffer
 void ByteStream::pop_output(const size_t len) {
-    size_t bufsize = buffer_size();
-    for ( size_t i = 0; i < min(len,bufsize); ++i )
+    size_t cnt = 0, bufsize = _buffer.size();
+    while ( cnt < len && cnt < bufsize )
     {
-        next_read++;
-        next_read %= buffer.capacity();
-        total_read++;
+        _buffer.pop_front();
+        cnt++;
     }
+    _total_read += cnt;
  }
 
 //! Read (i.e., copy and then pop) the next "len" bytes of the stream
 //! \param[in] len bytes will be popped and returned
 //! \returns a string
 std::string ByteStream::read(const size_t len) {
-    std::string res;
-    if ( buffer_empty() ) set_error();
-    size_t bufsize = buffer_size();
-    for ( size_t i = 0; i < min(len,bufsize); ++i )
-    {
-        res += buffer[next_read++];
-        next_read %= buffer.capacity();
-        total_read++;
-    }
+    std::string res = peek_output(len);
+    pop_output(len);
     return res;
 }
 
-void ByteStream::end_input() { input_end_flag = true; }
+void ByteStream::end_input() { eof_flag = true; }
 
-bool ByteStream::input_ended() const { return input_end_flag; }
+bool ByteStream::input_ended() const { return eof_flag; }
 
-size_t ByteStream::buffer_size() const { return total_write-total_read; }
+size_t ByteStream::buffer_size() const { return _buffer.size(); }
 
-bool ByteStream::buffer_empty() const { return total_write == total_read; }
+bool ByteStream::buffer_empty() const { return _buffer.empty(); }
 
-bool ByteStream::eof() const { return buffer_empty() && input_ended(); }
+bool ByteStream::eof() const { return input_ended() && buffer_empty(); }
 
-size_t ByteStream::bytes_written() const { return total_write; }
+size_t ByteStream::bytes_written() const { return _total_write; }
 
-size_t ByteStream::bytes_read() const { return total_read; }
+size_t ByteStream::bytes_read() const { return _total_read; }
 
-size_t ByteStream::remaining_capacity() const { return buffer.capacity()-buffer_size(); }
+size_t ByteStream::remaining_capacity() const { return _capacity-_buffer.size(); }
