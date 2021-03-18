@@ -13,8 +13,6 @@ void DUMMY_CODE(Targs &&... /* unused */) {}
 using namespace std;
 
 StreamReassembler::StreamReassembler(const size_t capacity) : _output(capacity), _capacity(capacity) {
-    buffer.resize(_capacity);
-    used.resize(_capacity);
 }
 
 //! \details This function accepts a substring (aka a segment) of bytes,
@@ -22,52 +20,52 @@ StreamReassembler::StreamReassembler(const size_t capacity) : _output(capacity),
 //! contiguous substrings and writes them into the output stream in order.
 void StreamReassembler::push_substring(const string &data, const size_t index, const bool eof) {
     // discard bytes beyond current window
-    size_t ind = index;
-    while ( buffered_bytes < _capacity && ind - index < data.size() )
+
+    if ( eof ) 
     {
-        if ( ind < expect )
-        {
-            ind++;
-            continue;
-        }
-        else if ( ind - expect >= _capacity )
-            break;
-        buffer[(ind-expect+next)%_capacity] = data[ind-index];
-        if ( !used[(ind-expect+next)%_capacity] )
-        {
-            used[(ind-expect+next)%_capacity] = true;
-            buffered_bytes++;
-        }
-        ind++;
+        _eof_mark = data.size() + index;
+        _eof_flag = true;
     }
-    std::string assembled;
-    size_t cnt = 0;
-    while ( used[next] && cnt < _output.remaining_capacity() )
+
+    size_t cnt = index;
+    while ( cnt < _expect && cnt - index < data.size() ) cnt++;
+    while ( cnt - _expect < _capacity && cnt - index < data.size() )
     {
-        assembled += buffer[next];
-        used[next++] = false;
-        buffered_bytes--;
-        next %= _capacity;
-        expect++;
+        while ( cnt - _expect >= _buffer.size() )
+        {
+            _buffer.push_back('0');
+            _used.push_back(false);
+        }
+        _buffer[cnt-_expect] = data[cnt-index];
+        if ( !_used[cnt-_expect] ) _unassembled++;
+        _used[cnt-_expect] = true;
         cnt++;
     }
 
-    if ( assembled.size() > 0 )
-        _output.write(assembled);
-    if ( eof )
+    std::string str;
+    cnt = 0; 
+    while ( cnt < _buffer.size() && cnt < _output.remaining_capacity() && _used[cnt] )
     {
-        if ( expect >= index && expect-index == data.size() )
-            _output.end_input();
-        else
-        {
-            eof_mark = index + data.size();
-            eof_set = true;
-        }
+        str += _buffer[cnt];
+        cnt++;
     }
-    else if ( eof_set && expect == eof_mark )
+
+    if ( str.size() > 0 ) _output.write(str);
+    
+    cnt = 0;
+    while ( cnt < str.size() )
+    {
+        _buffer.pop_front();
+        _used.pop_front();
+        _expect++;
+        _unassembled--;
+        cnt++;
+    }
+
+    if ( _eof_flag && _expect == _eof_mark )
         _output.end_input();
 }
 
-size_t StreamReassembler::unassembled_bytes() const { return buffered_bytes; }
+size_t StreamReassembler::unassembled_bytes() const { return _unassembled; }
 
-bool StreamReassembler::empty() const { return unassembled_bytes() == 0; }
+bool StreamReassembler::empty() const { return _buffer.empty(); }

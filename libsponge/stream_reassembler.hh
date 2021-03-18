@@ -5,7 +5,7 @@
 
 #include <cstdint>
 #include <string>
-#include <vector>
+#include <deque>
 
 //! \brief A class that assembles a series of excerpts from a byte stream (possibly out of order,
 //! possibly overlapping) into an in-order byte stream.
@@ -14,15 +14,14 @@ class StreamReassembler {
     // Your code here -- add private members as necessary.
 
     ByteStream _output;  //!< The reassembled in-order byte stream
-    std::vector<char> buffer{};
-    std::vector<bool> used{};
     size_t _capacity;    //!< The maximum number of bytes
+    std::deque<char> _buffer{};
+    std::deque<bool> _used{};
+    size_t _expect = 0;
+    size_t _unassembled = 0;
+    size_t _eof_mark = 0;
+    bool _eof_flag = false;
 
-    size_t buffered_bytes = 0;
-    size_t expect = 0;
-    size_t next = 0;
-    size_t eof_mark = 0;
-    bool eof_set = false;
 
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.
@@ -55,6 +54,8 @@ class StreamReassembler {
     //! \brief Is the internal state empty (other than the output stream)?
     //! \returns `true` if no substrings are waiting to be assembled
     bool empty() const;
+
+    size_t expect() const { return _expect; }
 };
 
 #endif  // SPONGE_LIBSPONGE_STREAM_REASSEMBLER_HH
